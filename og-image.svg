@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#e85e00"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".10"/>
+    </linearGradient>
+    <style>
+      /* 注意：用 font-size / font-weight / font-family 长写，不要用 font 简写。
+         resvg 不解析 font 简写，会退化成 16px 默认字号（实测踩过：
+         整张分享图的标题都变成了小字，标题和正文一样大）。 */
+      .t1 { font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; font-size: 84px; font-weight: 700; fill: #ffffff; }
+      .t2 { font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; font-size: 34px; font-weight: 400; fill: rgba(255,255,255,.90); }
+      .t3 { font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; font-size: 30px; font-weight: 400; fill: #ffffff; }
+      .t4 { font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; font-size: 24px; font-weight: 400; fill: rgba(255,255,255,.72); }
+      .logo { font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; font-size: 58px; font-weight: 600; fill: #ffffff; }
+      .bold { font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- 品牌方块 -->
+  <rect x="88" y="86" width="104" height="104" rx="28" fill="#ffffff" fill-opacity=".16"/>
+  <text class="logo" x="140" y="158" text-anchor="middle">译</text>
+
+  <text class="t1" x="224" y="152">微软式翻译</text>
+  <text class="t2" x="228" y="204">把正常的话，翻译成一种不太正常的中文。</text>
+
+  <!-- 示例卡片 -->
+  <rect x="88" y="278" width="1024" height="200" rx="26" fill="url(#card)"/>
+  <text class="t3" x="128" y="352">Sit back and relax.</text>
+  <text class="t3 bold" x="128" y="418">请坐和放宽。</text>
+
+  <text class="t4" x="88" y="556">纯娱乐项目 · 不代表任何官方微软产品</text>
+  <text class="t4" x="1112" y="556" text-anchor="end">xiiiii422.github.io</text>
+</svg>

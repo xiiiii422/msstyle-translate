@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- viewport-fit=cover 用于适配 iPhone 刘海屏安全区域 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#ff6900" />
+<meta name="color-scheme" content="light dark" />
+
+x
+     不改也不会坏，但 canonical / og:url 指向占位域名会让搜索引擎把权重算错，
+     og:image 也会变成裂图，等于放弃分享与收录。 -->
+<title>微软式翻译｜把正常的话，翻译成一种不太正常的中文</title>
+<meta name="description" content="输入一句正常的中文或英文，AI 把它改写成一本正经、生硬、直译、语序奇怪但依然看得懂的“微软式中文”。纯娱乐小工具，支持四档机器味调节。" />
+<meta name="keywords" content="微软式翻译,机翻,机器翻译,整活,翻译器,娱乐" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://xiiiii422.github.io/msstyle-translate/" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="微软式翻译" />
+<meta property="og:title" content="微软式翻译｜把正常的话，翻译成一种不太正常的中文" />
+<meta property="og:description" content="输入一句正常的中文或英文，得到一段一本正经、生硬、直译、语序奇怪的“微软式中文”。纯娱乐。" />
+<meta property="og:url" content="https://xiiiii422.github.io/msstyle-translate/" />
+<meta property="og:image" content="https://xiiiii422.github.io/msstyle-translate/og-image.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="zh_CN" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="微软式翻译" />
+<meta name="twitter:description" content="把正常的话，翻译成一种不太正常的中文。" />
+<meta name="twitter:image" content="https://xiiiii422.github.io/msstyle-translate/og-image.png" />
+
+<!-- 安全：不把完整 URL 泄露给第三方 -->
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<!-- 图标：SVG 给现代浏览器，PNG 给 iOS 主屏与 PWA 安装（iOS 不认 SVG） -->
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<a class="skip-link" href="#inputText">跳到输入框</a>
+
+<!-- ===== 顶部标题 ===== -->
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">译</span>
+      <div class="brand-text">
+        <h1>微软式翻译</h1>
+        <p class="tagline">把正常的话，翻译成一种不太正常的中文。</p>
+      </div>
+    </div>
+    <button type="button" class="btn btn-ghost btn-small" id="settingsBtn"
+            aria-expanded="false" aria-controls="settingsPanel">设置</button>
+  </div>
+</header>
+
+<!-- ===== 设置面板（API Key 等） ===== -->
+<section class="settings-panel" id="settingsPanel" hidden aria-label="设置">
+  <div class="wrap">
+    <div class="card settings-card">
+      <div class="pane-head">
+        <h2 class="pane-title">设置</h2>
+        <button type="button" class="btn btn-ghost btn-small" id="settingsCloseBtn">关闭</button>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="apiKeyInput">用自己的 API Key（可选）</label>
+        <div class="field-row">
+          <input type="password" id="apiKeyInput" class="text-input"
+                 placeholder="粘贴你的智谱 API Key"
+                 autocomplete="off" spellcheck="false" aria-describedby="apiKeyHelp" />
+          <button type="button" class="btn btn-ghost" id="toggleKeyBtn"
+                  aria-pressed="false" aria-label="显示或隐藏 API Key">显示</button>
+        </div>
+        <p class="field-help" id="apiKeyHelp">
+          本站已内置翻译服务，通常不需要填。只有在想用自己额度、
+          或公用额度用尽时才需要。填写的 Key 只保存在你自己浏览器的
+          localStorage 里，不会上传到本网站以外的地方。
+          <a href="https://bigmodel.cn/usercenter/proj-mgmt/apikeys" target="_blank" rel="noopener noreferrer">获取免费 Key</a>
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="modelSelect">模型</label>
+        <select id="modelSelect" class="text-input">
+          <option value="glm-4-flash-250414">glm-4-flash-250414（推荐，稳定）</option>
+          <option value="glm-4.7-flash">glm-4.7-flash（高峰期易限流）</option>
+          <option value="glm-4-flash">glm-4-flash</option>
+        </select>
+        <p class="field-help">首选模型不可用时会自动切换到备用模型。</p>
+      </div>
+
+      <div class="settings-actions">
+        <button type="button" class="btn btn-primary" id="saveKeyBtn">保存设置</button>
+        <button type="button" class="btn btn-ghost" id="clearKeyBtn">清除我的 Key</button>
+      </div>
+
+      <p class="field-help" id="keyStatus" role="status" aria-live="polite"></p>
+
+      <p class="notice notice-inline">
+        安全说明：本站的翻译服务由页面内置的加密 Key 提供。纯前端无法真正
+        保密 API Key，这一层混淆挡得住随手扒源码和密钥扫描，但挡不住刻意逆向。
+        如需严格保密，请改用服务端代理（见 README）。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 首次使用引导（仅在内置服务不可用时才会出现） ===== -->
+<div class="onboarding" id="onboarding" hidden>
+  <div class="card onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <h2 id="onboardingTitle">先配置一下 API Key</h2>
+    <p>
+      本站通常已内置翻译服务，打开就能用，正常情况下不会看到这个弹窗。
+      如果它出现了，说明当前环境无法使用内置服务，需要你填一个自己的 Key
+      （免费额度就够玩）。
+    </p>
+    <ol class="onboarding-steps">
+      <li>打开 <a href="https://bigmodel.cn/usercenter/proj-mgmt/apikeys" target="_blank" rel="noopener noreferrer">智谱开放平台</a> 注册并创建一个 API Key</li>
+      <li>点击下面的按钮，把 Key 粘贴进去</li>
+      <li>回到这里就能开始翻译了</li>
+    </ol>
+    <div class="onboarding-actions">
+      <button type="button" class="btn btn-primary" id="onboardingSetupBtn">去填写 API Key</button>
+      <button type="button" class="btn btn-ghost" id="onboardingSkipBtn">先随便看看</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="main">
+
+  <!-- ===== 翻译主卡片（含语言模式） ===== -->
+  <section class="card translate-card">
+
+    <div class="mode-row" role="radiogroup" aria-label="选择翻译模式">
+      <span class="mode-thumb" aria-hidden="true"></span>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="auto" checked />
+        <span>自动识别</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="zh" />
+        <span>中文 → 微软式中文</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="en" />
+        <span>英文 → 微软式中文</span>
+      </label>
+    </div>
+
+    <div class="panes">
+      <!-- 输入区 -->
+      <div class="pane">
+        <div class="pane-head">
+          <label class="pane-title" for="inputText">输入原文</label>
+          <span class="counter" id="charCounter">0 / 2000</span>
+        </div>
+
+        <textarea
+          id="inputText"
+          class="text-area"
+          placeholder="在这里输入中文或英文……例如：我今天特别开心，因为终于放假了。"
+          maxlength="2000"
+          rows="6"
+          spellcheck="false"
+          aria-describedby="inputHint"
+          autocomplete="off"></textarea>
+
+        <div class="pane-foot">
+          <button type="button" class="btn btn-ghost" id="randomBtn">随机示例</button>
+          <button type="button" class="btn btn-ghost" id="clearBtn">清空</button>
+        </div>
+      </div>
+
+      <!-- 中间的箭头（PC 显示箭头，手机显示向下箭头） -->
+      <div class="pane-arrow" aria-hidden="true">
+        <span class="arrow-glyph">→</span>
+      </div>
+
+      <!-- 输出区 -->
+      <div class="pane">
+        <div class="pane-head">
+          <span class="pane-title" id="outputTitle">微软式中文</span>
+          <span class="status" id="statusText" role="status" aria-live="polite"></span>
+        </div>
+
+        <div class="text-area output-area" id="outputText" tabindex="0"
+             role="region" aria-labelledby="outputTitle" aria-live="polite" aria-busy="false">
+          <p class="output-placeholder">翻译结果将会出现在这里。它可能不太通顺，但它是认真的。</p>
+        </div>
+
+        <div class="pane-foot">
+          <button type="button" class="btn btn-ghost" id="copyBtn" disabled>复制结果</button>
+          <button type="button" class="btn btn-ghost" id="retryBtn" disabled>重新翻译</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主按钮 -->
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="translateBtn">开始翻译</button>
+      <button type="button" class="btn btn-ghost" id="cancelBtn" hidden>取消</button>
+      <p class="hint" id="inputHint">按 <kbd>Ctrl</kbd> <kbd>↵</kbd>（Mac 为 <kbd>⌘</kbd> <kbd>↵</kbd>）也可以开始翻译。最多 2000 字。</p>
+    </div>
+  </section>
+
+  <!-- ===== 翻译程度 ===== -->
+  <section class="card level-card" aria-label="翻译程度">
+    <div class="pane-head">
+      <label class="pane-title" for="levelRange">翻译程度</label>
+      <span class="level-badge" id="levelLabel">3 · 重度微软式</span>
+    </div>
+
+    <div class="slider-row">
+      <span class="slider-end">自然</span>
+      <input type="range" id="levelRange" min="1" max="4" step="1" value="3"
+             aria-describedby="levelDesc"
+             aria-valuetext="3 · 重度微软式" />
+      <span class="slider-end">微软</span>
+    </div>
+
+    <p class="level-desc" id="levelDesc">重度微软式：语序明显不自然，但不至于看不懂。</p>
+  </section>
+
+  <!-- ===== 历史记录 ===== -->
+  <section class="card history-card" id="historyCard" aria-label="历史记录">
+    <div class="pane-head">
+      <span class="pane-title" id="historyTitle">历史记录</span>
+      <button type="button" class="btn btn-ghost btn-small" id="clearHistoryBtn">清空历史</button>
+    </div>
+    <ul class="history-list" id="historyList" aria-labelledby="historyTitle">
+      <li class="history-empty">还没有记录。你的前 10 次翻译将被保存在这台设备上。</li>
+    </ul>
+    <button type="button" class="btn btn-ghost btn-small history-close"
+            id="historyCloseBtn" aria-label="关闭历史记录">关闭</button>
+  </section>
+
+  <!-- 移动端历史入口（浮在右下角，桌面隐藏） -->
+  <button type="button" class="history-fab" id="historyFab"
+          aria-controls="historyCard" aria-expanded="false">历史</button>
+
+</main>
+
+<!-- ===== 底部 ===== -->
+<footer class="site-footer">
+  <div class="wrap">
+    <p>本网站仅供娱乐，不代表任何官方微软产品。</p>
+    <p class="footer-links">
+      <a href="privacy.html">隐私说明</a>
+      <span aria-hidden="true">·</span>
+      <a href="terms.html">使用条款</a>
+    </p>
+  </div>
+</footer>
+
+<!-- 轻量提示条（复制成功 / 错误提示） -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 允许部署者通过外部文件覆盖默认配置（可选，见 README）：
+     config.js 不存在时会触发 404，这是正常的，onerror 里给一句提示方便排查。
+     四个脚本都用 defer，保持执行顺序且不阻塞解析。
+     顺序很重要：config.js → secret.js → prompt.js → script.js
+       secret.js 里是加密的内置 Key，必须在 script.js 之前就位。 -->
+<script src="config.js" defer onerror="console.warn('[微软式翻译] config.js 未找到，将使用 script.js 里的默认配置（这是正常的）。')"></script>
+<script src="secret.js" defer></script>
+<script src="prompt.js" defer onerror="console.error('[微软式翻译] prompt.js 加载失败，页面无法工作。')"></script>
+<script src="script.js" defer></script>
+</body>
+</html>

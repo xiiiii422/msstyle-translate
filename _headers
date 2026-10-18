@@ -1,0 +1,36 @@
+# ==========================================================================
+# _headers —— Cloudflare Pages / Netlify 会自动读取这个文件并下发响应头。
+#
+# 说明：纯静态站点没有办法用 <meta> 完整地配置安全策略，
+#       CSP、HSTS、X-Frame-Options 这类响应头必须由托管层下发。
+#       如果你用的是阿里云 OSS，请在 CDN 的"响应头设置"里配置同样的内容。
+# ==========================================================================
+
+/*
+  # 内容安全策略：
+  #   - 只允许加载本站自己的脚本/样式/图片
+  #   - connect-src 放行：
+  #       'self'                    → 同源代理（PROXY_URL: "/api"，推荐）
+  #       https://open.bigmodel.cn  → 直连模式（访客自带 Key）
+  #     如果你把代理部署在另一个域名（例如 Cloudflare Worker），
+  #     必须把那个域名也加进 connect-src，否则浏览器会拦截翻译请求。
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://open.bigmodel.cn; font-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+
+  # 禁止被嵌入 iframe，防点击劫持
+  X-Frame-Options: DENY
+
+  # 禁止浏览器猜测 MIME 类型
+  X-Content-Type-Options: nosniff
+
+  # 跨域请求时不泄露完整 URL
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # 关闭不需要的浏览器能力
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+
+  # 强制 HTTPS（请确认站点已全站 HTTPS 后再启用，否则可能把自己锁在门外）
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+  # 不允许被其他站点引用为资源
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

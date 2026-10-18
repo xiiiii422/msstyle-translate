@@ -1,0 +1,24 @@
+# 依赖与构建产物
+node_modules/
+package-lock.json
+.npm-cache/
+
+# 变异测试的临时备份（正常结束会自动清理；这里兜底防止误提交）
+.mutation-backup/
+.mutation-running
+
+# 测试 / 调试过程中产生的临时文件
+.claim-count-*.log
+.claim-verify.log
+.baseline-run.ps1
+.dbg.js
+.quality.js
+.shots/
+._preview.*
+
+# 部署者可能存放真实 Key 的文件（见 README 第 2 节）
+# config.js
+
+# 系统文件
+.DS_Store
+Thumbs.db
