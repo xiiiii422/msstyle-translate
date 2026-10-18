@@ -2,6 +2,12 @@
 
 > 把正常的话，翻译成一种不太正常的中文。
 
+**在线体验：<https://xiiiii422.github.io/msstyle-translate/>**
+
+![桌面端预览](preview-desktop.png)
+
+<img src="preview-mobile.png" alt="移动端预览" width="320" />
+
 一个纯娱乐性质的静态网页小玩具：输入一句正常的中文或英文，AI 把它改写成**一本正经、生硬、直译、语序奇怪但依然看得懂**的"微软式中文"。
 
 纯静态 HTML + CSS + JavaScript，**没有后端、没有数据库、没有构建步骤**，下载即可运行，可直接部署到 GitHub Pages / Cloudflare Pages / 阿里云 OSS 等任意静态托管服务。
@@ -346,6 +352,11 @@ Worker 的 `xxx.workers.dev`），必须把那个域名也加进 `connect-src`�
 > `node check-assets.js` 会检查这两者是否一致。
 
 ### GitHub Pages
+
+本项目已经用这套流程部署在 **<https://xiiiii422.github.io/msstyle-translate/>**
+（仓库 Settings → Pages，Source = `main` 分支 `/ (root)`）。
+
+自己复刻一遍就是标准的四步：
 
 ```bash
 git init
