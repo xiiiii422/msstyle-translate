@@ -75,18 +75,23 @@
     TOP_P: 0.9,
     MAX_TOKENS: 2048,
 
-    /* 分档温度。
+    /* 分档温度 —— 真正的表在 prompt.js 里（唯一来源），这里只是转发。
      *
-     * 同一个 temperature 服务四档是错的：档位 1 本来就该"几乎正常"，
-     * 用 1.0 会让它时不时冒出与档位不符的离谱选词；档位 4 又需要更多
-     * 意外感来制造"灾难感"。实测按档位递进后，四档之间的区分度更稳。
+     * 为什么不在这里另抄一份：两份代理和所有联网测试都直接调用
+     * prompt.js 的 buildRequestBody。表只放在前端的话，代理模式就会
+     * 悄悄退回统一温度 —— 同一个输入，直连和走代理风格不一样，
+     * 正是当初把提示词抽成 prompt.js 要消灭的那类漂移。
      *
      * ⚠️ 上限必须是 1.0：智谱接口对 temperature 的合法区间是 [0, 1]，
-     *    写 1.1 会立刻返回 400 / code 1210「temperature参数非法」，
-     *    而 400 不在重试白名单里 —— 结果是第 4 档**每次**都翻译失败。
-     *    （实测踩过：四档里唯独 4 档全挂，且错误信息被友好提示吞掉了。）
-     * 不在表里的档位回落到上面的 TEMPERATURE。 */
-    LEVEL_TEMPERATURE: { 1: 0.55, 2: 0.75, 3: 0.95, 4: 1.0 },
+     *    写 1.1 会直接返回 400 / code 1210，而 400 不在重试白名单里，
+     *    结果是那一档**每次**都翻译失败（实测踩过：四档里唯独 4 档全挂）。
+     *    prompt.js 的 clampTemperature 还会再夹一次，配置写错也打不死某档。
+     *
+     * 后面的兜底值只在 prompt.js 缺失（部署不完整）时用到。 */
+    LEVEL_TEMPERATURE:
+      (typeof window !== "undefined" && window.MSSTYLE_PROMPT &&
+        window.MSSTYLE_PROMPT.LEVEL_TEMPERATURE) ||
+      { 1: 0.55, 2: 0.75, 3: 0.95, 4: 1.0 },
 
     // 关闭"思考模式"。
     //
@@ -127,6 +132,9 @@
     // 访客自己填写的 API Key（只存在他自己的浏览器里）
     KEY_STORAGE: "msstyle_translate_apikey_v1",
     MODEL_STORAGE: "msstyle_translate_model_v1",
+    /* 输入草稿。手机上打字很痛苦，刷新一下就全没了是最劝退的一种体验。
+       只存最近 MAX_INPUT 个字符，所以这一项的大小天然有上限。 */
+    DRAFT_KEY: "msstyle_translate_draft_v1",
   };
 
   /* ----------------------------------------------------------------------
@@ -608,19 +616,24 @@
    * 把 max_tokens 吃光后正文变成空字符串，接口却仍然返回 HTTP 200。
    */
   function buildRequestBody(model, { text, mode, level }) {
+    // 温度取自 prompt.js 的分档表（唯一来源），并在那里已夹进 [0,1]。
+    // 万一 prompt.js 缺失（部署不完整），退回本地兜底表再自己夹一次，
+    // 保证不会因为"取不到共享值"而发出一个接口拒绝的温度把整档打死。
+    const shared = PROMPTS && typeof PROMPTS.temperatureForLevel === "function"
+      ? PROMPTS.temperatureForLevel(level)
+      : Math.min(1, Math.max(0,
+          typeof CONFIG.LEVEL_TEMPERATURE[level] === "number"
+            ? CONFIG.LEVEL_TEMPERATURE[level]
+            : CONFIG.TEMPERATURE));
+
     const body = {
       model: model,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: buildUserPrompt(text, mode, level) },
       ],
-      // 档位越重，越需要一点"意外感"；档位越轻，越要克制。
-      // 再夹一次 [0,1]：智谱接口的合法区间就是这个，越界会直接 400。
-      // 有了这道夹子，将来就算有人把配置改成 1.2 也不会让某一档全废。
-      temperature: Math.min(1, Math.max(0,
-        typeof CONFIG.LEVEL_TEMPERATURE[level] === "number"
-          ? CONFIG.LEVEL_TEMPERATURE[level]
-          : CONFIG.TEMPERATURE)),
+      // 档位越重，越需要一点"意外感"；档位越轻，越要克制
+      temperature: shared,
       top_p: CONFIG.TOP_P,
       max_tokens: CONFIG.MAX_TOKENS,
       stream: false,
@@ -1243,6 +1256,83 @@
       len >= CONFIG.MAX_INPUT * 0.9 && len < CONFIG.MAX_INPUT);
   }
 
+  /* ----------------------------------------------------------------------
+   * 输入草稿
+   *
+   * 手机上打好一段话，误触刷新 / 切后台被系统回收，回来全没了 ——
+   * 这是这类小工具最劝退的一种体验。所以把输入框内容存一份在本地。
+   *
+   * 三个刻意的取舍：
+   *   · 防抖 400ms 再写：打字时每个键都同步写一次 localStorage 会掉帧。
+   *     代价是"打完字 400ms 内就关掉标签页"会丢最后几个字 ——
+   *     故意没加 pagehide 监听来补这个洞：监听器总数有预算上限
+   *     （test-long-session 要求 < 60），历史条目已经吃掉一大半，
+   *     为一个 400ms 的边角情况再加监听不划算。点翻译时会立即落盘。
+   *   · 只存 MAX_INPUT 个字符：这一项的大小因此天然有上限。
+   *   · 点「清空」时一起清掉：用户已经明确说"我不要了"，
+   *     下次打开还看到旧文字会很诡异（手滑的情况有「撤销」兜底）。
+   * -------------------------------------------------------------------- */
+  let draftTimer = null;
+
+  function saveDraftNow() {
+    const v = el.input.value;
+    if (!v) { safeStorage.remove(CONFIG.DRAFT_KEY); return; }
+    safeStorage.set(CONFIG.DRAFT_KEY, v.slice(0, CONFIG.MAX_INPUT));
+  }
+
+  function scheduleDraftSave() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(function () {
+      draftTimer = null;
+      saveDraftNow();
+    }, 400);
+  }
+
+  /**
+   * 立刻落盘并取消挂起的防抖定时器。
+   *
+   * 用在"状态要变了"的节点上（提交翻译、页面要卸载）。
+   * 除了保证内容不丢，也避免留一个没人管的定时器在后台跑 ——
+   * test-long-session 会数"翻译结束后还没清理的定时器"，
+   * 防抖定时器如果跨过一次完整请求周期留着，就会被算成泄漏。
+   */
+  function flushDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = null;
+    saveDraftNow();
+  }
+
+  /** 恢复上次没翻译完的输入；返回是否真的恢复了内容 */
+  function restoreDraft() {
+    const saved = safeStorage.get(CONFIG.DRAFT_KEY);
+    if (!saved || !String(saved).trim()) return false;
+    el.input.value = String(saved).slice(0, CONFIG.MAX_INPUT);
+    updateCounter();
+    return true;
+  }
+
+  /**
+   * 手机上把结果滚进视野。
+   *
+   * 桌面端两栏并排，结果就在右手边，不需要滚；
+   * 手机是上下堆叠，输入框一撑高，翻译完结果常常还在屏幕下面，
+   * 用户会以为"没反应"。所以只在窄屏 + 结果确实看不见时才滚。
+   */
+  function revealResult() {
+    try {
+      if (window.innerWidth > 860) return;          // 桌面并排，不用滚
+      if (!el.output || !el.output.getBoundingClientRect) return;
+      const box = el.output.getBoundingClientRect();
+      const vh = window.innerHeight || 0;
+      // 结果区大部分已在视野内就别动，避免打断正在看字的人
+      const visible = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+      if (box.height <= 0 || visible > box.height * 0.6) return;
+      window.scrollTo({ top: window.scrollY + box.top - 16, behavior: "smooth" });
+    } catch (e) {
+      /* 滚动纯属锦上添花，任何异常都不该影响翻译结果本身 */
+    }
+  }
+
   /**
    * 自适应输入框高度（随内容增长，但不撑爆页面）。
    *
@@ -1308,8 +1398,7 @@
           el.input.value = chip;
           el.input.dispatchEvent(new Event("input", { bubbles: true }));
           doTranslate(false);
-        });
-        wrap.appendChild(b);
+        });        wrap.appendChild(b);
       });
       el.output.appendChild(wrap);
       return;
@@ -1490,6 +1579,9 @@
         el.input.value = record.source;
         updateCounter();
         autoGrow();
+        // 直接改 value 不会触发 input 事件，草稿要手动同步一次，
+        // 否则刷新后回来的还是上一条草稿，而不是刚选中的这条。
+        flushDraft();
         renderOutput(record.result);
         state.hasResult = true;
         state.lastRequest = {
@@ -1558,6 +1650,9 @@
     const mode = getMode();
     const level = parseInt(el.levelRange.value, 10) || 3;
 
+    // 提交即落盘，顺手取消挂起的防抖定时器（别让它跨过整个请求周期）
+    flushDraft();
+
     // --- 进入加载状态 ---
     // requestSeq：每发起一次请求就自增。响应回来时如果序号已经变了，
     // 说明期间又发起了新请求，这条结果已经过期，直接丢弃，避免旧结果覆盖新结果。
@@ -1619,6 +1714,9 @@
       });
       renderHistory(list);
       updateHistoryCount();
+
+      // 手机上输入框会把结果顶到屏幕外，滚一下让用户立刻看到译文
+      revealResult();
     } catch (err) {
       // 过期请求的失败同样丢弃，避免干扰新一轮请求
       if (seq !== state.requestSeq) return;
@@ -1780,6 +1878,8 @@
       el.input.value = "";
       updateCounter();
       autoGrow();
+      // 用户明确表达"不要了"，草稿也要一起清掉
+      flushDraft();
       el.input.focus();
 
       // 撤销入口：复用 toast，点「撤销」恢复原内容
@@ -1787,6 +1887,7 @@
         el.input.value = prev;
         updateCounter();
         autoGrow();
+        flushDraft();
         el.input.focus();
       });
     });
@@ -1802,13 +1903,15 @@
       el.input.value = next;
       updateCounter();
       autoGrow();
+      flushDraft();
       el.input.focus();
     });
 
-    // 输入框：计数 + 自适应高度
+    // 输入框：计数 + 自适应高度 + 草稿
     el.input.addEventListener("input", function () {
       updateCounter();
       autoGrow();
+      scheduleDraftSave();
     });
 
     // Ctrl / ⌘ + Enter 开始翻译
@@ -2004,6 +2107,8 @@
     el.levelRange.value = String(level);
     syncLevel(level);
 
+    // 先恢复草稿，再算高度与计数 —— 顺序反了会出现"输入框先矮后跳高"
+    const hasDraft = restoreDraft();
     updateCounter();
     autoGrowNow();   // 初始化时需要立即定高，避免首屏跳动
     renderOutput("");
@@ -2012,6 +2117,12 @@
     syncButtons();
     bindEvents();
     updateKeyIndicator();
+
+    // 恢复了草稿就要说出来：凭空出现在输入框里的文字会让人困惑，
+    // 甚至怀疑是不是自己刚才误操作留下的。
+    if (hasDraft) {
+      setStatus("已恢复上次未翻译的内容", "done");
+    }
 
     // 动效：首屏错落入场 + 顶栏滚动态 + 分段游标归位。
     // 这三件事纯属视觉，任何一个失败都不该影响页面可用性。

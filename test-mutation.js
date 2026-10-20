@@ -511,6 +511,46 @@ const MUTATIONS = [
       "  color: #fff;\n  font-weight: 400;\n  padding: 10px 28px;"),
     suite: "test-visual-audit.js",
   },
+  // --- 针对档位阶梯（test-level-ladder.js）的破坏 ---
+  {
+    name: "第 4 档丢掉「被」字标记（阶梯顶端塌掉，3/4 档变同一档）",
+    file: "prompt.js",
+    apply: (s) => s.replace("  恰好 1 处「被」字硬译被动句", "  恰好 1 处「括号」字硬译被动句"),
+    suite: "test-level-ladder.js",
+  },
+  {
+    name: "把第 4 档温度写成 1.1（接口 400，那一档每次必挂）",
+    file: "prompt.js",
+    apply: (s) => s.replace("{ 1: 0.55, 2: 0.75, 3: 0.95, 4: 1.0 }",
+      "{ 1: 0.55, 2: 0.75, 3: 0.95, 4: 1.1 }"),
+    suite: "test-level-ladder.js",
+  },
+  {
+    name: "去掉叠字病句清洗（\"是是\"不再合并）",
+    file: "prompt.js",
+    apply: (s) => s.replace("    out = out.replace(/(?<!不)是是/g, \"是\");\n", ""),
+    suite: "test-level-ladder.js",
+  },
+  // --- 针对输入草稿 / 结果揭示（test-draft.js）的破坏 ---
+  {
+    name: "手机端不再把结果滚进视野（用户以为没反应）",
+    file: "script.js",
+    apply: (s) => s.replace("  function revealResult() {\n    try {",
+      "  function revealResult() {\n    return; // 破坏：永不滚动\n    try {"),
+    suite: "test-draft.js",
+  },
+  {
+    name: "草稿恢复被禁用（刷新后白打一遍字）",
+    file: "script.js",
+    apply: (s) => s.replace("    const hasDraft = restoreDraft();", "    const hasDraft = false;"),
+    suite: "test-draft.js",
+  },
+  {
+    name: "草稿防抖被去掉（每个键都同步写 localStorage）",
+    file: "script.js",
+    apply: (s) => s.replace("    }, 400);", "    }, 0);"),
+    suite: "test-draft.js",
+  },
 ];
 
 function runTestOnce(suite) {
