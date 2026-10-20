@@ -316,9 +316,13 @@ const MUTATIONS = [
   {
     name: "README 错误文案表回退到旧文案（文档与代码脱节）",
     file: "README.md",
+    /* 不要整行字面匹配 —— 这一行的"做法"列会被改写（例如从
+       "不填 Key" 变成 "删掉 secret.js"），整行匹配就会静默失效，
+       变异测试报"未生效，跳过"，等于这条守卫悄悄没了（实测踩过）。
+       锚定行首 + 行尾的固定片段，中间整段替换成旧文案。 */
     apply: (s) => s.replace(
-      "| Key 未配置 | 不填 Key（保持 `YOUR_API_KEY`） | 提示「请先填写 API Key，点右上角「设置」即可。」，**并自动打开设置面板**；不发起请求 |",
-      "| Key 未配置 | 不填 Key | 提示「还没有配置 API Key……」 |"),
+      /(\| Key 未配置 \|[^\n]*?提示「)[^\n]*?(」，\*\*并自动打开设置面板\*\*)/,
+      "$1还没有配置 API Key……$2"),
     suite: "test-manual-checklist.js",
   },
   // --- 针对 test-css-audit.js 的破坏 ---
@@ -550,6 +554,20 @@ const MUTATIONS = [
     file: "script.js",
     apply: (s) => s.replace("    }, 400);", "    }, 0);"),
     suite: "test-draft.js",
+  },
+  {
+    name: "提示词范例的括号写成整句重复（与「极短 2~6 字」自相矛盾）",
+    file: "prompt.js",
+    apply: (s) => s.replace("因为假期是终于得到了（是的，假期）",
+      "因为假期是终于得到了（是的，我们的假期是终于已经得到了）"),
+    suite: "test-level-ladder.js",
+  },
+  {
+    name: "提示词里的倍率与 LEVEL_LIMITS 脱钩（两处各写一套数字）",
+    file: "prompt.js",
+    apply: (s) => s.replace('"；3 档 ≤ 原文 ×" + LEVEL_LIMITS[3].toFixed(1)',
+      '"；3 档 ≤ 原文 ×" + (1.5).toFixed(1)'),
+    suite: "test-level-ladder.js",
   },
 ];
 

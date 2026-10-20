@@ -109,12 +109,86 @@ check("L4 的特征比 L1 多至少 3 个", markerSet(4).size - markerSet(1).siz
 /* ---------- 5. 通用硬约束放在系统提示里，不在四档里各抄一遍 ---------- */
 {
   const sys = P.SYSTEM_PROMPT;
-  check("系统提示含长度上限", /1~1\.5 倍/.test(sys));
   check("系统提示含'只输出一句话'", /只输出一句话/.test(sys));
   check("系统提示含「请」只用于命令句", /「请」只能出现在命令句/.test(sys));
+  check("系统提示含长度上限", /长度上限随档位放宽/.test(sys));
+
   // 四档里再重复同一条规则，会互相稀释注意力（实测高档位反而丢特征）
-  const dupLenCap = [1, 2, 3, 4].filter((n) => /1~1\.5 倍/.test(G(n))).length;
+  const dupLenCap = [1, 2, 3, 4].filter((n) => /倍以内|长度上限/.test(G(n))).length;
   check("长度上限不在各档重复声明（避免互相稀释）", dupLenCap === 0, dupLenCap + " 档重复");
+}
+
+/* ---------- 5b. 提示词里写的倍率必须等于 LEVEL_LIMITS（防止两处各写一套） ---------- */
+{
+  const sys = P.SYSTEM_PROMPT;
+  for (const n of [1, 2, 3, 4]) {
+    // 提示词里统一用一位小数（×2.0 而不是 ×2），避免同一份文本两种写法
+    const shown = P.LEVEL_LIMITS[n].toFixed(1);
+    check(`系统提示写明了 ${n} 档倍率 = ${shown}`,
+      sys.includes(n + " 档 ≤ 原文 ×" + shown), "找不到该句");
+  }
+  check("倍率随档位单调不减",
+    [1, 2, 3, 4].every((n, i) => i === 0 || P.LEVEL_LIMITS[n] >= P.LEVEL_LIMITS[n - 1]),
+    JSON.stringify(P.LEVEL_LIMITS));
+  check("maxLengthFor 至少比原文多 2 个字",
+    P.maxLengthFor(1, 100) >= 102 && P.maxLengthFor(4, 3) >= 5,
+    "100→" + P.maxLengthFor(1, 100) + " 3→" + P.maxLengthFor(4, 3));
+}
+
+/* ---------- 5c. 提示词自带的四档范例必须满足它自己的规则 ---------- */
+/* 这一条是踩过坑之后加的：范例里写的括号强调一度长达 9 个字，
+   而通用约束又要求"极短 2~6 字"，同时长度还超了当档上限。
+   自相矛盾的提示词会让模型随机挑一条违反，档位表现就飘了。 */
+{
+  const sys = P.SYSTEM_PROMPT;
+  const SRC = "我今天特别开心，因为终于放假了。";
+  const examples = {};
+  // 形如：  3 档：“我今天是有……（是的，假期）。”      （“是……的” + 1 处极短括号）
+  // 注意行尾还有注释，所以不能用 $ 收尾。
+  for (const m of sys.matchAll(/^\s*(\d) 档：“(.+?)。”/gm)) {
+    examples[Number(m[1])] = m[2] + "。";
+  }
+
+  check("系统提示里有四档范例", Object.keys(examples).length === 4,
+    Object.keys(examples).join(","));
+
+  for (const n of [1, 2, 3, 4]) {
+    const ex = examples[n];
+    if (!ex) continue;
+    const max = P.maxLengthFor(n, SRC.length);
+    check(`范例 ${n} 档长度合规（${ex.length} ≤ ${max}）`, ex.length <= max);
+
+    const hasShi = /是[^，。]{1,12}的/.test(ex);
+    const hasParen = /（.+）/.test(ex);
+    const hasBei = /被/.test(ex);
+    if (n === 1) {
+      check("范例 1 档不含「是……的」", !hasShi, ex);
+      check("范例 1 档不含括号", !hasParen, ex);
+    }
+    if (n === 2) {
+      check("范例 2 档含「是……的」", hasShi, ex);
+      check("范例 2 档不含括号", !hasParen, ex);
+    }
+    if (n === 3) {
+      check("范例 3 档含「是……的」+ 括号", hasShi && hasParen, ex);
+      check("范例 3 档不含「被」", !hasBei, ex);
+    }
+    if (n === 4) {
+      check("范例 4 档含「是……的」+ 括号 + 「被」", hasShi && hasParen && hasBei, ex);
+    }
+  }
+
+  // 括号内容必须"极短"：通用约束写了 2~6 字，范例不能打脸
+  for (const n of [3, 4]) {
+    const inner = (examples[n] || "").match(/（(.+?)）/);
+    if (!inner) { check(`范例 ${n} 档括号内容可测量`, false, "无括号"); continue; }
+    const body = inner[1].replace(/^是的，?/, "");
+    check(`范例 ${n} 档括号内容极短（${body.length} ≤ 6）`, body.length > 0 && body.length <= 6,
+      inner[1]);
+  }
+
+  // 四档范例必须互不相同
+  check("四档范例互不相同", new Set(Object.values(examples)).size === Object.keys(examples).length);
 }
 
 /* ---------- 6. 分档温度：严格递增且落在接口允许的 [0,1] ---------- */

@@ -47,7 +47,7 @@
 └── ── 开发期测试脚本，部署时可以不传 ────────────────
     ├── test-ui.js              # jsdom：交互/状态机/降级/错误处理（79 项）
     ├── test-secret.js          # ★ 内置 Key 密文：能解开、无明文、防篡改（18 项）
-    ├── test-level-ladder.js    # ★ 档位阶梯结构：每档只多一个可数标记（50 项）
+    ├── test-level-ladder.js    # ★ 档位阶梯结构 + 范例自洽（71 项）
     ├── test-draft.js           # ★ 输入草稿/防抖/手机端结果揭示（23 项）
     ├── test-vault-wiring.js    # ★ 内置 Key 接线：页面真的用上了它（22 项）
     ├── test-settings.js        # Key 设置、引导、竞态、存储降级（27 项）
@@ -75,7 +75,7 @@
     ├── test-misconfig.js       # ★ 代理配置错误：Redis/端口/依赖缺失（13 项）
     ├── test-integrity-guard.js  # ★ 验证"被强杀后的自动还原"有效（2 项）
     ├── test-level-monotonic.js # ★ 联网：档位区分度（机器味须随档位递增）
-    ├── test-mutation.js        # ★ 变异测试：确认这些测试真的能发现破坏（61 项）
+    ├── test-mutation.js        # ★ 变异测试：确认这些测试真的能发现破坏（63 项）
     ├── test-style.js           # 联网：检查输出风格是否跑偏成文言文
     ├── test-e2e.js             # 联网：走完整"输入→翻译→结果"流程
     ├── test-proxy-e2e.js       # 联网：经由真实代理的端到端
@@ -638,7 +638,12 @@ Cloudflare Worker 没有常驻进程，module 级计数**在实例回收后会�
 > 现在这条阶梯由 `test-level-ladder.js`（离线 50 项）和
 > `test-level-differentiation.js` / `test-level-monotonic.js`（联网）共同守住。
 
-无论哪一档，都必须保证基本可读，且长度不超过原文的 1.5 倍。
+无论哪一档，都必须保证基本可读。长度上限**随档位放宽**
+（`prompt.js` 里的 `LEVEL_LIMITS`：1 档 ×1.2、2 档 ×1.5、3 档 ×2.0、4 档 ×2.2）——
+因为高档位强制要求的标记本身就要占字，共用一个上限会让
+"必须加括号"和"不许写长"互相矛盾，模型只能挑一条违反。
+这个倍率只定义一次，既拼进提示词文本，也通过 `maxLengthFor()` 给测试当基准；
+`test-level-ladder.js` 还会反过来校验**提示词自带的四档范例**确实满足它自己的规则。
 
 ### 历史记录测试
 
@@ -1732,7 +1737,7 @@ TEST_ZHIPU_KEY="你的Key" node test-style.js
 | --- | --- |
 | `test-ui.js` | **79 / 79 通过** |
 | `test-secret.js` | **18 / 18 通过**（密文可解、无明文、防篡改、域名锁） |
-| `test-level-ladder.js` | **50 / 50 通过**（档位阶梯：每档只多一个可数标记） |
+| `test-level-ladder.js` | **71 / 71 通过**（档位阶梯 + 提示词范例自洽性） |
 | `test-draft.js` | **23 / 23 通过**（草稿防抖、撤销同步、手机端结果揭示） |
 | `test-vault-wiring.js` | **22 / 22 通过**（内置 Key 真的接进了请求头） |
 | `test-settings.js` | **27 / 27 通过** |
@@ -1760,7 +1765,7 @@ TEST_ZHIPU_KEY="你的Key" node test-style.js
 | `test-misconfig.js` | **13 / 13 通过** |
 | `test-integrity-guard.js` | **2 / 2 通过**（验证强杀后能自动还原） |
 | `check-coverage.js` | Node 侧函数覆盖率 **97%**（30/31） |
-| `test-mutation.js` | **61 / 61 破坏被捕获** |
+| `test-mutation.js` | **63 / 63 破坏被捕获** |
 | `check-prompt-parity.js` | **29 / 29 通过** |
 | `check-csp.js` | **23 / 23 通过** |
 | `check-assets.js` | 资源 0 缺失，CSP 与接口/代理地址一致 |
@@ -1777,7 +1782,7 @@ TEST_ZHIPU_KEY="你的Key" node test-style.js
 | `test-worker-live.js`（联网，经 Worker） | 3/3 成功，无文言文，/stats 正常 |
 | `test-prompt-parity-live.js`（联网） | 直连与代理各 4/4 无文言文，风格质量一致 |
 
-**合计 858 项离线断言全部通过**（35 个套件，另加 61 项变异测试确认这些断言确实能发现破坏）。
+**合计 879 项离线断言全部通过**（35 个套件，另加 63 项变异测试确认这些断言确实能发现破坏）。
 
 ---
 
