@@ -14,6 +14,7 @@ package-lock.json
 .dbg.js
 .quality.js
 .mut.log
+.live-check.js
 .shots/
 ._preview.*
 
