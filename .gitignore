@@ -13,6 +13,7 @@ package-lock.json
 .baseline-run.ps1
 .dbg.js
 .quality.js
+.mut.log
 .shots/
 ._preview.*
 
